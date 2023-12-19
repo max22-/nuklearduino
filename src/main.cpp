@@ -12,14 +12,14 @@ struct nk_user_font nk_font;
 void *last_draw_buf;
 void *draw_buf;
 
-
-
 float text_width_calculation(nk_handle handle, float height, const char *text, int len) {
-
   //your_font_type *type = handle.ptr;
-
   float text_width = tft.textWidth(text);
   return text_width;
+}
+
+static inline uint16_t nk_color_to_565(nk_color color) {
+  return tft.color565(color.r, color.g, color.b);
 }
 
 void setup() {
@@ -84,8 +84,8 @@ void loop() {
       switch (cmd->type) {
       case NK_COMMAND_TEXT:
         tx = (const struct nk_command_text*)cmd;
+        tft.setTextColor(nk_color_to_565(tx->foreground), nk_color_to_565(tx->background));
         tft.drawString(String(tx->string, tx->length), tx->x, tx->y);
-        #warning add other parameters
         break;
       case NK_COMMAND_LINE:
         l = (const struct nk_command_line*)cmd;
