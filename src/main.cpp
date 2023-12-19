@@ -4,11 +4,15 @@
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
 
+#define MAX_MEMORY (64*1024)
+
 TFT_eSPI tft;
 struct nk_context ctx;
 struct nk_user_font nk_font;
+void *last_draw_buf;
+void *draw_buf;
 
-#define MAX_MEMORY (64*1024)
+
 
 float text_width_calculation(nk_handle handle, float height, const char *text, int len) {
 
@@ -27,7 +31,9 @@ void setup() {
   nk_font.height = tft.fontHeight();
   nk_font.width = text_width_calculation;
   Serial.println("Hello, World!");
-  nk_init_fixed(&ctx, calloc(1, MAX_MEMORY), MAX_MEMORY, &nk_font);
+  last_draw_buf = calloc(1, MAX_MEMORY);
+  draw_buf = calloc(1, MAX_MEMORY);
+  nk_init_fixed(&ctx, draw_buf, MAX_MEMORY, &nk_font);
 }
 
 void loop() {
@@ -70,28 +76,32 @@ void loop() {
   const struct nk_command_rect *r;
   const struct nk_command_rect_filled *rf;
 
-  const struct nk_command *cmd = 0;
-  nk_foreach(cmd, &ctx) {
-    switch (cmd->type) {
-    case NK_COMMAND_TEXT:
-      tx = (const struct nk_command_text*)cmd;
-      tft.drawString(String(tx->string, tx->length), tx->x, tx->y);
-      #warning add other parameters
-      break;
-    case NK_COMMAND_LINE:
-      l = (const struct nk_command_line*)cmd;
-      tft.drawLine(l->begin.x, l->begin.y, l->end.x, l->end.y, tft.color565(l->color.r, l->color.g, l->color.b));
-      #warning TODO: alpha blend ?
-      break;
-    case NK_COMMAND_RECT:
-      r = (const struct nk_command_rect *)cmd;
-      tft.drawRoundRect(r->x, r->y, r->w, r->h, r->rounding, tft.color565(r->color.r, r->color.g, r->color.b));
-      break;
-    case NK_COMMAND_RECT_FILLED:
-      rf = (const struct nk_command_rect_filled *)cmd;
-      tft.fillRoundRect(rf->x, rf->y, rf->w, rf->h, rf->rounding, tft.color565(rf->color.r, rf->color.g, rf->color.b));
-      break;
-    }  
+  void *cmds = nk_buffer_memory(&ctx.memory);
+  if(memcmp(cmds, last_draw_buf, ctx.memory.allocated)) {
+    memcpy(last_draw_buf, cmds, ctx.memory.allocated);
+    const struct nk_command *cmd = 0;
+    nk_foreach(cmd, &ctx) {
+      switch (cmd->type) {
+      case NK_COMMAND_TEXT:
+        tx = (const struct nk_command_text*)cmd;
+        tft.drawString(String(tx->string, tx->length), tx->x, tx->y);
+        #warning add other parameters
+        break;
+      case NK_COMMAND_LINE:
+        l = (const struct nk_command_line*)cmd;
+        tft.drawLine(l->begin.x, l->begin.y, l->end.x, l->end.y, tft.color565(l->color.r, l->color.g, l->color.b));
+        #warning TODO: alpha blend ?
+        break;
+      case NK_COMMAND_RECT:
+        r = (const struct nk_command_rect *)cmd;
+        tft.drawRoundRect(r->x, r->y, r->w, r->h, r->rounding, tft.color565(r->color.r, r->color.g, r->color.b));
+        break;
+      case NK_COMMAND_RECT_FILLED:
+        rf = (const struct nk_command_rect_filled *)cmd;
+        tft.fillRoundRect(rf->x, rf->y, rf->w, rf->h, rf->rounding, tft.color565(rf->color.r, rf->color.g, rf->color.b));
+        break;
+      }  
+    }
   }
   nk_clear(&ctx);
 
