@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
+#include <Wire.h>
+#include <Adafruit_FT6206.h>
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_IMPLEMENTATION
 #include <nuklear.h>
@@ -7,6 +9,7 @@
 #define MAX_MEMORY (64*1024)
 
 TFT_eSPI tft;
+Adafruit_FT6206 ctp = Adafruit_FT6206();
 struct nk_context ctx;
 struct nk_user_font nk_font;
 void *last_draw_buf;
@@ -25,8 +28,15 @@ static inline uint16_t nk_color_to_565(nk_color color) {
 void setup() {
   Serial.begin(115200);
   tft.init();
-  tft.setRotation(1);
+  tft.setRotation(3);
   tft.fillScreen(TFT_BLACK);
+//  tft.setTextSize(2);
+  tft.setFreeFont(&FreeSerif9pt7b);
+  Wire.begin(18, 19);
+  if (!ctp.begin(5)) {
+    Serial.println("Couldn't start FT6206 touchscreen controller");
+    while(true) yield();
+  }
   nk_font.userdata.ptr = nullptr;
   nk_font.height = tft.fontHeight();
   nk_font.width = text_width_calculation;
@@ -37,9 +47,30 @@ void setup() {
 }
 
 void loop() {
+
+  nk_input_begin(&ctx);
+  static bool touched = false;
+  static int16_t x = 0, y = 0;
+
+  if(ctp.touched()) {
+    TS_Point p = ctp.getPoint();
+    x = tft.width() - p.y;
+    y = p.x;
+    Serial.printf("x = %d\ty=%d\n", x, y);
+    nk_input_motion(&ctx, x, y);
+    if(!touched)
+      nk_input_button(&ctx, NK_BUTTON_LEFT, x, y, 1);
+    touched = true;
+    //tft.drawPixel(x, y, TFT_RED);
+  } else {
+    if(touched)
+      nk_input_button(&ctx, NK_BUTTON_LEFT, x, y, 0);
+    touched = false;
+  }
+
+  nk_input_end(&ctx);
+
   /* init gui state */
-
-
 
   enum {EASY, HARD};
   static int op = EASY;
@@ -50,9 +81,17 @@ void loop() {
       NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_CLOSABLE)) {
       /* fixed widget pixel width */
       nk_layout_row_static(&ctx, 30, 80, 1);
-      if (nk_button_label(&ctx, "button")) {
-          /* event handling */
+      static bool show_button2 = false;
+      if (nk_button_label(&ctx, "button ")) {
+          show_button2 = true;
       }
+
+      if(show_button2) {
+        if (nk_button_label(&ctx, "button2")) {
+          show_button2 = false;
+        }
+      }
+
 
       /* fixed widget window ratio width */
       nk_layout_row_dynamic(&ctx, 30, 2);
@@ -62,7 +101,7 @@ void loop() {
       /* custom widget pixel width */
       nk_layout_row_begin(&ctx, NK_STATIC, 30, 2);
       {
-          nk_layout_row_push(&ctx, 50);
+          nk_layout_row_push(&ctx, 75);
           nk_label(&ctx, "Volume:", NK_TEXT_LEFT);
           nk_layout_row_push(&ctx, 110);
           nk_slider_float(&ctx, 0, &value, 1.0f, 0.1f);
@@ -74,6 +113,7 @@ void loop() {
   void *cmds = nk_buffer_memory(&ctx.memory);
   if(memcmp(cmds, last_draw_buf, ctx.memory.allocated)) {
     memcpy(last_draw_buf, cmds, ctx.memory.allocated);
+    tft.fillScreen(TFT_BLACK);
     const struct nk_command *cmd = 0;
     nk_foreach(cmd, &ctx) {
       switch (cmd->type) {
@@ -97,6 +137,22 @@ void loop() {
       case NK_COMMAND_RECT_FILLED: {
         const struct nk_command_rect_filled *rf = (const struct nk_command_rect_filled *)cmd;
         tft.fillRoundRect(rf->x, rf->y, rf->w, rf->h, rf->rounding, tft.color565(rf->color.r, rf->color.g, rf->color.b));
+        break;
+      }
+      case NK_COMMAND_CIRCLE: {
+        const struct nk_command_circle *c = (const struct nk_command_circle *)cmd;
+        int16_t rx = c->w/2, ry = c->h/2;
+        int16_t xc = c->x + rx, yc = c->y + ry;
+        #warning TODO: is it well centered ?
+        tft.drawEllipse(xc, yc, rx, ry, nk_color_to_565(c->color));
+        break;
+      }
+      case NK_COMMAND_CIRCLE_FILLED: {
+        const struct nk_command_circle_filled *c = (const struct nk_command_circle_filled *)cmd;
+        int16_t rx = c->w/2, ry = c->h/2;
+        int16_t xc = c->x + rx, yc = c->y + ry;
+        #warning TODO: is it well centered ?
+        tft.fillEllipse(xc, yc, rx, ry, nk_color_to_565(c->color));
         break;
       }
       }  
