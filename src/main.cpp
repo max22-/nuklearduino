@@ -85,13 +85,11 @@ void loop() {
       break;
     case NK_COMMAND_RECT:
       r = (const struct nk_command_rect *)cmd;
-      tft.drawRect(r->x, r->y, r->w, r->h, tft.color565(r->color.r, r->color.g, r->color.b));
-      #warning TODO: add rounding
+      tft.drawRoundRect(r->x, r->y, r->w, r->h, r->rounding, tft.color565(r->color.r, r->color.g, r->color.b));
       break;
     case NK_COMMAND_RECT_FILLED:
       rf = (const struct nk_command_rect_filled *)cmd;
-      tft.fillRect(rf->x, rf->y, rf->w, rf->h, tft.color565(rf->color.r, rf->color.g, rf->color.b));
-      #warning TODO: add rounding
+      tft.fillRoundRect(rf->x, rf->y, rf->w, rf->h, rf->rounding, tft.color565(rf->color.r, rf->color.g, rf->color.b));
       break;
     }  
   }
