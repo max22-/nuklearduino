@@ -9,6 +9,7 @@
 #define MAX_MEMORY (64*1024)
 
 TFT_eSPI tft;
+TFT_eSprite spr(&tft);
 Adafruit_FT6206 ctp = Adafruit_FT6206();
 struct nk_context ctx;
 struct nk_user_font nk_font;
@@ -30,15 +31,17 @@ void setup() {
   tft.init();
   tft.setRotation(3);
   tft.fillScreen(TFT_BLACK);
-//  tft.setTextSize(2);
-  tft.setFreeFont(&FreeSerif9pt7b);
+  if(!spr.createSprite(tft.width(), tft.height()))
+    Serial.println("Failed to create sprite");
+//  spr.setTextSize(2);
+  spr.setFreeFont(&FreeSerif9pt7b);
   Wire.begin(18, 19);
   if (!ctp.begin(5)) {
     Serial.println("Couldn't start FT6206 touchscreen controller");
     while(true) yield();
   }
   nk_font.userdata.ptr = nullptr;
-  nk_font.height = tft.fontHeight();
+  nk_font.height = spr.fontHeight();
   nk_font.width = text_width_calculation;
   Serial.println("Hello, World!");
   last_draw_buf = calloc(1, MAX_MEMORY);
@@ -61,7 +64,7 @@ void loop() {
     if(!touched)
       nk_input_button(&ctx, NK_BUTTON_LEFT, x, y, 1);
     touched = true;
-    //tft.drawPixel(x, y, TFT_RED);
+    //spr.drawPixel(x, y, TFT_RED);
   } else {
     if(touched)
       nk_input_button(&ctx, NK_BUTTON_LEFT, x, y, 0);
@@ -92,6 +95,8 @@ void loop() {
         }
       }
 
+      nk_label(&ctx, String(ESP.getPsramSize()).c_str(), NK_TEXT_ALIGN_LEFT);
+      nk_label(&ctx, String(ESP.getFreePsram()).c_str(), NK_TEXT_ALIGN_LEFT);
 
       /* fixed widget window ratio width */
       nk_layout_row_dynamic(&ctx, 30, 2);
@@ -113,30 +118,30 @@ void loop() {
   void *cmds = nk_buffer_memory(&ctx.memory);
   if(memcmp(cmds, last_draw_buf, ctx.memory.allocated)) {
     memcpy(last_draw_buf, cmds, ctx.memory.allocated);
-    tft.fillScreen(TFT_BLACK);
+    spr.fillSprite(TFT_BLACK);
     const struct nk_command *cmd = 0;
     nk_foreach(cmd, &ctx) {
       switch (cmd->type) {
       case NK_COMMAND_TEXT: {
         const struct nk_command_text *tx = (const struct nk_command_text*)cmd;
-        tft.setTextColor(nk_color_to_565(tx->foreground), nk_color_to_565(tx->background));
-        tft.drawString(String(tx->string, tx->length), tx->x, tx->y);
+        spr.setTextColor(nk_color_to_565(tx->foreground), nk_color_to_565(tx->background));
+        spr.drawString(String(tx->string, tx->length), tx->x, tx->y);
         break;
       }
       case NK_COMMAND_LINE: {
         const struct nk_command_line *l = (const struct nk_command_line*)cmd;
-        tft.drawLine(l->begin.x, l->begin.y, l->end.x, l->end.y, tft.color565(l->color.r, l->color.g, l->color.b));
+        spr.drawLine(l->begin.x, l->begin.y, l->end.x, l->end.y, spr.color565(l->color.r, l->color.g, l->color.b));
         #warning TODO: alpha blend ?
         break;
       }
       case NK_COMMAND_RECT: {
         const struct nk_command_rect *r = (const struct nk_command_rect *)cmd;
-        tft.drawRoundRect(r->x, r->y, r->w, r->h, r->rounding, tft.color565(r->color.r, r->color.g, r->color.b));
+        spr.drawRoundRect(r->x, r->y, r->w, r->h, r->rounding, spr.color565(r->color.r, r->color.g, r->color.b));
         break;
       }
       case NK_COMMAND_RECT_FILLED: {
         const struct nk_command_rect_filled *rf = (const struct nk_command_rect_filled *)cmd;
-        tft.fillRoundRect(rf->x, rf->y, rf->w, rf->h, rf->rounding, tft.color565(rf->color.r, rf->color.g, rf->color.b));
+        spr.fillRoundRect(rf->x, rf->y, rf->w, rf->h, rf->rounding, spr.color565(rf->color.r, rf->color.g, rf->color.b));
         break;
       }
       case NK_COMMAND_CIRCLE: {
@@ -144,7 +149,7 @@ void loop() {
         int16_t rx = c->w/2, ry = c->h/2;
         int16_t xc = c->x + rx, yc = c->y + ry;
         #warning TODO: is it well centered ?
-        tft.drawEllipse(xc, yc, rx, ry, nk_color_to_565(c->color));
+        spr.drawEllipse(xc, yc, rx, ry, nk_color_to_565(c->color));
         break;
       }
       case NK_COMMAND_CIRCLE_FILLED: {
@@ -152,11 +157,12 @@ void loop() {
         int16_t rx = c->w/2, ry = c->h/2;
         int16_t xc = c->x + rx, yc = c->y + ry;
         #warning TODO: is it well centered ?
-        tft.fillEllipse(xc, yc, rx, ry, nk_color_to_565(c->color));
+        spr.fillEllipse(xc, yc, rx, ry, nk_color_to_565(c->color));
         break;
       }
       }  
     }
+    spr.pushSprite(0, 0);
   }
   nk_clear(&ctx);
 
