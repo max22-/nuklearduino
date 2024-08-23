@@ -160,6 +160,12 @@ void loop() {
         spr.fillEllipse(xc, yc, rx, ry, nk_color_to_565(c->color));
         break;
       }
+      case NK_COMMAND_SCISSOR: {
+        const struct nk_command_scissor *c = (const struct nk_command_scissor *)cmd;
+        int32_t x = c->x, y = c->y, w = c->w, h = c->h;
+        spr.setViewport(x, y, w, h, false);
+        break;
+      }
       }  
     }
     spr.pushSprite(0, 0);
