@@ -18,7 +18,7 @@ void *draw_buf;
 
 float text_width_calculation(nk_handle handle, float height, const char *text, int len) {
   //your_font_type *type = handle.ptr;
-  float text_width = tft.textWidth(text);
+  float text_width = spr.textWidth(text);
   return text_width;
 }
 
