@@ -33,8 +33,9 @@ void setup() {
   tft.fillScreen(TFT_BLACK);
   if(!spr.createSprite(tft.width(), tft.height()))
     Serial.println("Failed to create sprite");
-//  spr.setTextSize(2);
-  spr.setFreeFont(&FreeSerif9pt7b);
+  //spr.setTextSize(2);
+  //spr.setFreeFont(&FreeSerif9pt7b);
+  spr.setTextFont(2);
   Wire.begin(18, 19);
   if (!ctp.begin(5)) {
     Serial.println("Couldn't start FT6206 touchscreen controller");
