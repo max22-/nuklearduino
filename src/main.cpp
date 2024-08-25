@@ -51,7 +51,7 @@ void setup() {
 }
 
 void loop() {
-
+  static unsigned long fps = 0;
   nk_input_begin(&ctx);
   static bool touched = false;
   static int16_t x = 0, y = 0;
@@ -81,8 +81,10 @@ void loop() {
   static float value = 0.6f;
   static int i =  20;
 
-  if (nk_begin(&ctx, "Show", nk_rect(50, 50, 220, 220),
-      NK_WINDOW_BORDER|NK_WINDOW_MOVABLE|NK_WINDOW_CLOSABLE)) {
+  
+  nk_style_push_vec2(&ctx, &ctx.style.window.scrollbar_size, nk_vec2(20,10));
+  
+  if (nk_begin(&ctx, "Show", nk_rect(0, 0, spr.width(), spr.height()), 0)) {
       /* fixed widget pixel width */
       nk_layout_row_static(&ctx, 30, 80, 1);
       static bool show_button2 = false;
@@ -98,6 +100,7 @@ void loop() {
 
       nk_label(&ctx, String(ESP.getPsramSize()).c_str(), NK_TEXT_ALIGN_LEFT);
       nk_label(&ctx, String(ESP.getFreePsram()).c_str(), NK_TEXT_ALIGN_LEFT);
+      nk_label(&ctx, (String(fps) + " FPS").c_str(), NK_TEXT_ALIGN_LEFT);
 
       /* fixed widget window ratio width */
       nk_layout_row_dynamic(&ctx, 30, 2);
@@ -115,7 +118,7 @@ void loop() {
       nk_layout_row_end(&ctx);
   }
   nk_end(&ctx);
-
+  nk_style_pop_vec2(&ctx);
   void *cmds = nk_buffer_memory(&ctx.memory);
   if(memcmp(cmds, last_draw_buf, ctx.memory.allocated)) {
     memcpy(last_draw_buf, cmds, ctx.memory.allocated);
@@ -169,15 +172,17 @@ void loop() {
       }
       }  
     }
+    spr.fillCircle(x, y, 5, TFT_RED);
     spr.pushSprite(0, 0);
   }
   nk_clear(&ctx);
 
   static unsigned long timestamp = millis();
-  static unsigned long fps = 0;
+  static unsigned long frames = 0;
   if(millis() - timestamp > 1000) {
     timestamp = millis();
-    tft.drawString(String(fps) + " FPS", 0, 0);
-    fps = 0;
-  } else fps++;
+    fps = frames;
+    //tft.drawString(String(fps) + " FPS", 0, 0);
+    frames = 0;
+  } else frames++;
 }
