@@ -1,6 +1,7 @@
 #ifndef NUKLEARDUINO_H
 #define NUKLEARDUINO_H
 
+#include <Arduino.h>
 #include <nuklear.h>
 
 class NkBackend {
