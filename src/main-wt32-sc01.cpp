@@ -4,8 +4,6 @@
 #include <Adafruit_FT6206.h>
 #define NK_INCLUDE_DEFAULT_ALLOCATOR
 #define NK_IMPLEMENTATION
-#define TFT_eSPI_BACKEND
-#define INPUT_FT6206
 #include "nuklearduino.h"
 
 #define MAX_MEMORY (64*1024)

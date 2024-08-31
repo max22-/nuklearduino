@@ -109,7 +109,7 @@ private:
 
 /* TFT_eSPI Backend ********************************************************* */
 
-#ifdef TFT_eSPI_BACKEND
+#ifdef NK_TFT_eSPI_BACKEND
 
 #include <TFT_eSPI.h>
 
@@ -213,9 +213,117 @@ private:
 
 #endif
 
+/* LovyanGFX Backend ******************************************************** */
+
+#ifdef NK_LOVYANGFX_BACKEND
+
+#define LGFX_USE_V1
+#include <LovyanGFX.hpp>
+#include <driver/i2c.h>
+
+static float text_width_calculation(nk_handle handle, float height, const char *text, int len) {
+    LGFX_Sprite *spr = (LGFX_Sprite *)handle.ptr;
+    float text_width = spr->textWidth(text);
+    return text_width;
+}
+
+class NkBackend_LovyanGFX : public NkBackend {
+public:
+    NkBackend_LovyanGFX(lgfx::LGFX_Device *lcd) : lcd(lcd), spr(lcd) {}
+
+    bool begin() {
+        spr.setTextFont(2);
+        void *ptr = spr.createSprite(lcd->width(), lcd->height());
+        return ptr != nullptr;
+    }
+
+    void begin_frame() override {}
+
+    virtual void clear() override {
+        spr.fillScreen(TFT_BLACK);
+    }
+
+    virtual void draw_text(const struct nk_command_text *text) override {
+        spr.setTextColor(nk_color_to_565(text->foreground), nk_color_to_565(text->background));
+        spr.drawString(String(text->string, text->length), text->x, text->y);
+    }
+
+    void stroke_line(const struct nk_command_line *line) override {
+        spr.drawLine(line->begin.x, line->begin.y, line->end.x, line->end.y, nk_color_to_565(line->color));
+        #warning TODO: alpha blending ?
+    }
+
+    void stroke_rect(const struct nk_command_rect *rect) override {
+        spr.drawRoundRect(rect->x, rect->y, rect->w, rect->h, rect->rounding, nk_color_to_565(rect->color));
+    }
+
+    void fill_rect(const struct nk_command_rect_filled *rect) override {
+        spr.fillRoundRect(rect->x, rect->y, rect->w, rect->h, rect->rounding, nk_color_to_565(rect->color));
+    }
+
+    void stroke_circle(const struct nk_command_circle *circle) override {
+        int16_t rx = circle->w/2, ry = circle->h/2;
+        int16_t xc = circle->x + rx, yc = circle->y + ry;
+        spr.drawEllipse(xc, yc, rx, ry, nk_color_to_565(circle->color));
+    }
+
+    void fill_circle(const struct nk_command_circle_filled *circle) override {
+        int16_t rx = circle->w/2, ry = circle->h/2;
+        int16_t xc = circle->x + rx, yc = circle->y + ry;
+        spr.fillEllipse(xc, yc, rx, ry, nk_color_to_565(circle->color));
+    }
+
+    void scissor(const struct nk_command_scissor *scissor) override {
+        int32_t x = scissor->x, y = scissor->y, w = scissor->w, h = scissor->h;
+        spr.setClipRect(x, y, w, h);
+    }
+
+    void end_frame() override {}
+
+    void draw_mouse(unsigned int x, unsigned int y) override {
+        spr.fillCircle(x, y, 5, TFT_RED);
+    }
+
+    void render() override {
+        spr.pushSprite(0, 0);
+    }
+
+    void* get_font_userdata() override { return &spr; }
+
+    float (*get_text_width_calculation_func(void))(nk_handle, float, const char *, int) override {
+        return text_width_calculation;
+    }
+
+    float font_height() override {
+        return spr.fontHeight();
+    }
+
+    int width() override {
+        return spr.width();
+    }
+
+    int height() override {
+        return spr.height();
+    }
+
+    int rotation() override {
+        return lcd->getRotation();
+    }
+
+private:
+    uint16_t nk_color_to_565(struct nk_color color) {
+        return spr.color565(color.r, color.g, color.b);
+    }
+
+    lgfx::LGFX_Device *lcd;
+    LGFX_Sprite spr;
+};
+
+#endif
+
 /* FT6206 Touchscreen ******************************************************* */
 
-#ifdef INPUT_FT6206
+#ifdef NK_INPUT_FT6206
 
 #include <Adafruit_FT6206.h>
 
@@ -263,6 +371,62 @@ private:
     }
     Adafruit_FT6206 &ctp;
     bool touched = false;
+};
+
+#endif
+
+/* bb_captouch input ******************************************************** */
+
+#ifdef NK_INPUT_BB_CAPTOUCH
+
+#include <bb_captouch.h>
+
+class NkInput_BBCapTouch : public NkInput {
+public:
+    NkInput_BBCapTouch(BBCapTouch &bbct) : bbct(bbct) {}
+    int get_x() override { return x; }
+    int get_y() override { return y; }
+private:
+    void handle(struct nk_context *ctx, NkBackend *backend) override {
+        nk_input_begin(ctx);
+        if(bbct.getSamples(&ti)) {
+            switch(backend->rotation()) {
+            case 0: // fallthrough
+            default:
+                x = ti.x[0];
+                y = ti.y[0];
+                break;
+            case 1:
+                x = ti.y[0];
+                y = backend->height() - ti.x[0];
+                break;
+            case 2:
+                x = backend->width() - ti.x[0];
+                y = backend->height() - ti.y[0];
+                break;
+            case 3:
+                x = backend->width() - ti.y[0];
+                y = ti.x[0];
+                break;
+            }
+            nk_input_motion(ctx, x, y);
+            if(!touched) {
+                nk_input_button(ctx, NK_BUTTON_LEFT, x, y, 1);
+                touched = true;
+            }
+            timestamp = millis();
+        } else {
+            if(touched && millis() - timestamp > 100) {
+                nk_input_button(ctx, NK_BUTTON_LEFT, x, y, 0);
+                touched = false;
+            }
+        }
+        nk_input_end(ctx);
+    }
+    BBCapTouch &bbct;
+    TOUCHINFO ti;
+    bool touched = false;
+    unsigned long timestamp;
 };
 
 #endif
