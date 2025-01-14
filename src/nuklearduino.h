@@ -15,6 +15,7 @@ public:
     virtual void fill_rect(const struct nk_command_rect_filled *) = 0;
     virtual void stroke_circle(const struct nk_command_circle *c ) = 0;
     virtual void fill_circle(const struct nk_command_circle_filled *) = 0;
+    virtual void fill_triangle(const struct nk_command_triangle_filled *) = 0;
     virtual void scissor(const struct nk_command_scissor *) = 0;
     virtual void end_frame() = 0;
     virtual void draw_mouse(unsigned int x, unsigned int y) = 0;
@@ -84,6 +85,9 @@ public:
                     break;
                 case NK_COMMAND_CIRCLE_FILLED:
                     backend->fill_circle((const struct nk_command_circle_filled *)cmd);
+                    break;
+                case NK_COMMAND_TRIANGLE_FILLED:
+                    backend->fill_triangle((const struct nk_command_triangle_filled*)cmd);
                     break;
                 case NK_COMMAND_SCISSOR:
                     backend->scissor((const struct nk_command_scissor *)cmd);
@@ -163,6 +167,17 @@ public:
         int16_t rx = circle->w/2, ry = circle->h/2;
         int16_t xc = circle->x + rx, yc = circle->y + ry;
         spr.fillEllipse(xc, yc, rx, ry, nk_color_to_565(circle->color));
+    }
+
+    void fill_triangle(const struct nk_command_triangle_filled *triangle) override {
+        int32_t 
+            x0 = triangle->a.x,
+            x1 = triangle->b.x,
+            x2 = triangle->c.x,
+            y0 = triangle->a.y,
+            y1 = triangle->b.y,
+            y2 = triangle->c.y;
+        spr.fillTriangle(x0, y0, x1, y1, x2, y2, nk_color_to_565(triangle->color));
     }
 
     void scissor(const struct nk_command_scissor *scissor) override {
@@ -271,6 +286,17 @@ public:
         int16_t rx = circle->w/2, ry = circle->h/2;
         int16_t xc = circle->x + rx, yc = circle->y + ry;
         spr.fillEllipse(xc, yc, rx, ry, nk_color_to_565(circle->color));
+    }
+
+    void fill_triangle(const struct nk_command_triangle_filled *triangle) override {
+        int32_t 
+            x0 = triangle->a.x,
+            x1 = triangle->b.x,
+            x2 = triangle->c.x,
+            y0 = triangle->a.y,
+            y1 = triangle->b.y,
+            y2 = triangle->c.y;
+        spr.fillTriangle(x0, y0, x1, y1, x2, y2, nk_color_to_565(triangle->color));
     }
 
     void scissor(const struct nk_command_scissor *scissor) override {
